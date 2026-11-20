@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 조세심판 절차적 요건 점검기
 
-## Getting Started
+조세심판청구가 접수되면, 청구서와 첨부 서류만으로 **절차상 요건을 갖췄는지** 먼저 점검해 **각하 요건에 해당할 가능성**과 그 근거를 보여주는 도구입니다.
 
-First, run the development server:
+> **최종 각하결정은 담당자가 합니다.** 이 도구는 "각하 요건 해당 가능성"과 근거까지만 보여주며, 결정을 대신하지 않습니다.
+> 이 프로젝트는 교육 과정(Vibe Coding 실무 교육)의 실습 결과물이며, **지어낸 가상 서류로만 시험**했습니다. 실제 서류를 넣지 마세요.
+
+## 왜 만들었나
+
+접수·배정 담당자와 사건조사 담당자는 청구기간이 지났는지, 대상 처분이 있는지, 청구인·대리인 자격이 맞는지를 사건마다 손으로 대조합니다. 이 확인이 늦거나 빠지면 각하할 사건에 조사 인력이 먼저 투입되고, 담당자마다 판단이 갈릴 수 있습니다. 같은 기준으로 빠르게 점검하도록 돕는 것이 목표입니다.
+
+## 무엇을 점검하나
+
+| 점검 항목 | 보는 것 |
+|---|---|
+| 청구기간 경과 | 처분을 안 날부터 90일 이내인지. 기산일·기한일 계산 과정, 말일이 휴일이면 다음 날, 우편소인일 규칙 반영 |
+| 처분 부존재 | 처분서·처분일·처분청으로 대상 처분이 확인되는지 |
+| 청구인 부적격 | 청구인이 처분 상대방(납세고지서 수신자 등)과 같은지. 다르면 예외 가능성이 있어 "판단 필요" |
+| 대리인 부적격 | 사건 유형(소액 여부)과 대리인의 관계·자격(배우자, 4촌 이내 혈족, 변호사·세무사 등) 대조 |
+
+결과는 **충족 / 미충족 / 확인 필요(정보 없음) / 판단 필요(해석 어려움)** 중 하나로 나오고, 상태 옆에 뜻(각하 사유 아님 / 각하 사유 해당 가능 / 결과 확정 전)을 함께 보여줍니다.
+미충족에는 **근거 조문**(국가법령정보센터에서 확인한 원문·주소·확인 날짜)과 **서류상 위치**가 붙습니다. 조문 파일에 없는 조문은 기억으로 채우지 않고 "조문 확인 필요"로 표시합니다.
+
+## 이렇게 씁니다
+
+1. 시작 화면에서 **가상 서류** 또는 **실제 서류** 모드를 고릅니다.
+2. (가상 서류) 청구서·첨부자료·답변서 파일(PDF·Word·JPG)을 올리면 AI가 핵심 정보를 읽어 칸을 채우고, 값마다 출처(파일·쪽)를 보여줍니다.
+   (실제 서류) 값을 직접 입력합니다. 파일 업로드와 AI 호출이 없습니다.
+3. 값이 서류와 맞는지 확인하고 고칩니다. 고친 값은 다시 읽어도 덮어쓰지 않습니다.
+4. **점검하기**를 누르면 네 가지 점검 결과와 각하 요건 해당 가능성이 나옵니다.
+5. **보고서 내려받기**(인쇄 → PDF로 저장) 또는 **점검 종료**를 하면 입력값과 업로드 파일이 모두 지워집니다.
+
+## 안전 원칙
+
+- **AI는 서류에서 값을 읽기만 합니다.** 판정은 같은 입력이면 항상 같은 결과가 나오는 규칙 코드가 합니다.
+- **실제 서류는 외부 AI 서비스로 보내지 않습니다.** 실제 서류 모드에는 업로드 화면과 AI 호출 코드가 없습니다.
+- **저장하지 않습니다.** 데이터베이스가 없고, 값은 브라우저 메모리에만 있다가 점검을 끝내면 지워집니다. 서버는 파일을 저장하지 않습니다.
+- **모르면 모른다고 합니다.** 정보가 없으면 "확인 필요"이고, 추측으로 채우지 않습니다. AI가 못 찾았거나 확신이 낮은 값은 비워 둡니다. "처분서 없음"은 AI가 채우지 않고 담당자가 직접 고릅니다.
+- 주민등록번호·사업자등록번호 등 식별번호는 화면과 보고서에서 가립니다. 서류 내용은 로그에 남기지 않습니다.
+- API 키는 서버 코드에서만 읽고 브라우저로 나가지 않습니다.
+
+## 기술
+
+- [Next.js](https://nextjs.org/) (App Router, React, TypeScript, Tailwind CSS)
+- OpenAI API (가상 서류 자동 추출, 서버에서만 호출)
+- Vitest (자동 시험), Vercel (배포)
+
+## 직접 실행해 보기
+
+Node.js가 필요합니다.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm test         # 자동 시험
+npm run check    # 타입 검사 + 코드 검사 + 시험 + 빌드
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> Windows PowerShell에서 `npm`이 "스크립트를 실행할 수 없습니다"라고 막히면 `npm.cmd run dev`처럼 `npm.cmd`로 실행하세요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+가상 서류 자동 추출을 쓰려면 `.env` 파일에 `OPENAI_API_KEY`를 넣습니다. (`.env`는 저장소에 올라가지 않습니다.) 키가 없어도 **실제 서류 모드(직접 입력)**는 그대로 동작합니다.
+`npm run test:live`는 샘플 서류 9개를 실제 AI로 읽혀 전체 흐름을 시험합니다(개발 서버가 켜져 있어야 하고, OpenAI 호출 비용이 조금 듭니다).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 폴더 구성
 
-## Learn More
+| 위치 | 내용 |
+|---|---|
+| `app/` | 화면과 서버 API(`/api/extract`) |
+| `components/` | 시작·입력·결과·보고서 화면 |
+| `lib/rules/` | 점검 규칙 4개, 날짜 계산, 공휴일 목록 |
+| `lib/law/` | 확인한 근거 조문 파일 |
+| `lib/extract/`, `lib/server/` | AI 추출, 서버 전용 코드(키·출처 확인) |
+| `samples/` | 지어낸 가상 서류 9세트와 시험 사례 |
+| `tests/` | 자동 시험 |
 
-To learn more about Next.js, take a look at the following resources:
+## 기획·설계·검증 문서
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [PRD.md](PRD.md): 무엇을·왜 만드는지(서비스 기획서)
+- [PLAN.md](PLAN.md): 작업 순서와 성공 기준
+- [DESIGN.md](DESIGN.md): 화면·데이터 흐름·기술 선택
+- [CHECK.md](CHECK.md): 설계 대조(Gap 분석)와 보안 점검 결과
+- [DEPLOY.md](DEPLOY.md): 배포 전 확인 사항과 알려진 한계
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 알려진 한계
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 공휴일 목록은 2026년만 들어 있습니다. 목록에 없는 연도의 기한은 "확인 필요"로 나옵니다.
+- HWP와 예전 Word(.doc)는 읽지 못하고 "PDF로 변환" 안내만 합니다.
+- AI가 서류를 틀리게 읽을 수 있습니다. 그래서 출처를 보여주고 사람이 확인·수정하게 했습니다.
+- 로그인이 없는 공개 도구입니다. 가상 서류 자동 추출은 OpenAI 호출 비용이 발생하므로, 공개 운영 시 사용 한도 설정이 필요합니다.
+- 소액 판단의 일부 요건, 천재지변·전산망 장애로 인한 기한 연장 등은 다루지 않습니다.
