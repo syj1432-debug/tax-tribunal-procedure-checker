@@ -14,6 +14,7 @@ import { 칸목록 } from "./CaseForm";
 
 interface ReportViewProps {
   정보: 사건정보;
+  AI값수: number;
   결과들: 점검결과[];
   가능성: 각하가능성;
 }
@@ -33,13 +34,16 @@ function 오늘(): string {
 
 function 값글(값: 사건정보, 이름: (typeof 칸목록)[number]["이름"]): string {
   const 원래 = 값[이름];
-  if (원래 === null || 원래 === undefined || 원래 === "") return "(없음 — 확인 필요)";
+  if (원래 === null || 원래 === undefined || 원래 === "") {
+    // 대리인 칸은 비워 두면 "대리인 없음"으로 점검한다. 결과와 같은 말로 적는다. (CHECK.md G5)
+    return 이름 === "대리인" ? "(없음 — 대리인 없음으로 점검)" : "(없음 — 확인 필요)";
+  }
   if (이름 === "처분서있음") return 원래 ? "있음" : "없음";
   if (이름 === "청구금액" && typeof 원래 === "number") return `${원래.toLocaleString("ko-KR")}원`;
   return 마스킹(String(원래));
 }
 
-export default function ReportView({ 정보, 결과들, 가능성 }: ReportViewProps) {
+export default function ReportView({ 정보, AI값수, 결과들, 가능성 }: ReportViewProps) {
   return (
     <article className="hidden w-full text-sm text-black print:block">
       <h1 className="text-xl font-bold">조세심판 절차적 요건 점검 보고서</h1>
@@ -53,6 +57,12 @@ export default function ReportView({ 정보, 결과들, 가능성 }: ReportViewP
         <p className="text-lg font-bold">{가능성}</p>
         <p className="mt-1">※ 최종 각하결정은 담당자가 내립니다. 이 보고서는 가능성과 근거만 보여줍니다.</p>
       </section>
+
+      {AI값수 > 0 && (
+        <p className="mt-3 border border-black p-2">
+          ※ AI가 서류에서 읽은 값 {AI값수}개가 이 결과에 쓰였습니다. 서류와 맞는지 담당자가 확인해야 합니다.
+        </p>
+      )}
 
       <h2 className="mt-5 text-base font-bold">항목별 점검 결과</h2>
       <ol className="mt-2 space-y-3">
@@ -84,6 +94,12 @@ export default function ReportView({ 정보, 결과들, 가능성 }: ReportViewP
                 </ul>
               </>
             )}
+            {결과.서류상위치 && (
+              <>
+                <p className="mt-2 font-semibold">서류상 위치</p>
+                <p className="whitespace-pre-wrap">{마스킹(결과.서류상위치)}</p>
+              </>
+            )}
             {결과.조문확인필요 && (
               <p className="mt-2 font-semibold">
                 조문 확인 필요
@@ -110,7 +126,7 @@ export default function ReportView({ 정보, 결과들, 가능성 }: ReportViewP
                   {출처 && !정보.사용자수정?.includes(칸.이름) && (
                     <span className="text-xs">
                       {" "}
-                      (출처: {출처.파일명}
+                      (출처: {마스킹(출처.파일명)}
                       {출처.쪽수 ? ` ${출처.쪽수}쪽` : ""})
                     </span>
                   )}

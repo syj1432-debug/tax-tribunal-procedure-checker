@@ -7,6 +7,7 @@
 
 import { useRef, useState } from "react";
 
+import { 마스킹 } from "@/lib/mask";
 import { 크기글, 파일검사, 파일크기한도, 허용형식목록글 } from "@/lib/upload";
 
 export type 읽기상태 = "읽는 중" | "읽음" | "못 읽음";
@@ -105,7 +106,7 @@ export default function UploadPanel({ 항목들, onAdd, onRemove }: UploadPanelP
         <ul role="alert" className="mt-3 space-y-1 text-sm text-red-800 dark:text-red-200">
           {거절들.map((거절, 번호) => (
             <li key={번호}>
-              {거절.이름}: {거절.이유}
+              {마스킹(거절.이름)}: {거절.이유}
             </li>
           ))}
         </ul>
@@ -117,7 +118,7 @@ export default function UploadPanel({ 항목들, onAdd, onRemove }: UploadPanelP
             <li key={항목.번호} className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">
               <div className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate">
-                  {항목.파일.name}{" "}
+                  {마스킹(항목.파일.name)}{" "}
                   <span className="text-zinc-600 dark:text-zinc-400">({크기글(항목.파일.size)})</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

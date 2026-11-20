@@ -4,7 +4,7 @@
 // Design Ref: §1-3 — 각하 요건 해당 가능성 요약 + 네 항목의 상태·상태뜻·근거·계산 과정
 // Plan SC: PLAN 작업 9번 — 네 항목 상태, 각하 요건 해당 가능성, 근거 표시
 // 화면에 글자로 나오는 값은 모두 마스킹을 거친다. (작업 10번, PRD 7번)
-// 근거 조문 원문은 작업 16번에서 붙였다. 서류상 위치·원본 보기는 다음 작업에서 채운다. 보고서는 작업 17번(ReportView).
+// 근거 조문 원문은 작업 16번에서 붙였다. 서류상 위치는 CHECK.md G1에서 붙였다(원본 보기 패널은 다음 사이클). 보고서는 작업 17번(ReportView).
 
 import { 마스킹 } from "@/lib/mask";
 import type { 각하가능성 } from "@/lib/rules";
@@ -12,6 +12,8 @@ import type { 상태, 점검결과, 점검항목 } from "@/lib/types";
 
 interface ResultViewProps {
   결과들: 점검결과[];
+  /** 서류에서 AI가 읽어 채웠고 담당자가 고치지 않은 값의 수. 0보다 크면 경고를 보여준다. (CHECK.md G4) */
+  AI값수: number;
   가능성: 각하가능성;
   onBack: () => void;
   /** [점검 종료]: 입력값·점검 결과를 모두 지우고 시작 화면으로 돌아간다. (작업 11번) */
@@ -42,7 +44,7 @@ const 가능성설명: Record<각하가능성, string> = {
   "추가 확인 필요": "미충족은 없으나 확인 필요·판단 필요 항목이 있어 아직 결론을 낼 수 없습니다.",
 };
 
-export default function ResultView({ 결과들, 가능성, onBack, onEnd, onDownload }: ResultViewProps) {
+export default function ResultView({ 결과들, AI값수, 가능성, onBack, onEnd, onDownload }: ResultViewProps) {
   return (
     <div>
       <div className="rounded-lg border border-zinc-300 p-4 dark:border-zinc-700">
@@ -53,6 +55,16 @@ export default function ResultView({ 결과들, 가능성, onBack, onEnd, onDown
           ※ 최종 각하결정은 담당자가 내립니다. 이 화면은 가능성과 근거만 보여줍니다.
         </p>
       </div>
+
+      {AI값수 > 0 && (
+        <div role="note" className="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+          <p className="font-medium">AI가 서류에서 읽은 값 {AI값수}개가 이 결과에 쓰였습니다.</p>
+          <p className="mt-1">
+            AI는 틀리게 읽을 수 있고, 서류 속 글에 영향을 받을 수도 있습니다. 입력 화면의 값이 서류와 맞는지 확인한 뒤 결과를
+            참고해 주세요. (맞는지 확인할 때는 값 아래 &quot;출처&quot;를 보세요)
+          </p>
+        </div>
+      )}
 
       <ul className="mt-6 space-y-4">
         {결과들.map((결과) => (
@@ -104,7 +116,12 @@ export default function ResultView({ 결과들, 가능성, onBack, onEnd, onDown
                 담당자가 조문을 직접 확인해 주세요.
               </p>
             )}
-            {결과.서류상위치 && <p className="mt-2 text-sm">서류상 위치: {마스킹(결과.서류상위치)}</p>}
+            {결과.서류상위치 && (
+              <div className="mt-3">
+                <p className="text-sm font-medium">서류상 위치</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">{마스킹(결과.서류상위치)}</p>
+              </div>
+            )}
           </li>
         ))}
       </ul>

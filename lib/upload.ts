@@ -47,3 +47,20 @@ export function 크기글(바이트: number): string {
   if (바이트 >= 1_000) return `${Math.round(바이트 / 1_000)}KB`;
   return `${바이트}B`;
 }
+
+/** Word에서 뽑은 글을 AI에 보낼 수 있는 최대 글자 수. 압축률 높은 파일로 비용이 폭증하는 것을 막는다. (CHECK.md G8) */
+export const 최대글자수 = 200_000;
+
+/**
+ * 파일의 첫 몇 바이트가 확장자가 말하는 형식과 맞는지 본다. (확장자만 바꾼 파일을 걸러낸다. CHECK.md G8)
+ *  - PDF: "%PDF-", JPG: FF D8 FF, DOCX: "PK"(압축 묶음) 로 시작
+ *  - 위 세 형식이 아니면(.hwp 등) 여기서는 따지지 않고 true를 돌려준다.
+ */
+export function 내용형식맞음(이름: string, 앞바이트: Uint8Array): boolean {
+  const 소문자 = 이름.toLowerCase();
+  const 시작 = (...바이트들: number[]) => 바이트들.every((값, 번호) => 앞바이트[번호] === 값);
+  if (소문자.endsWith(".pdf")) return 시작(0x25, 0x50, 0x44, 0x46, 0x2d);
+  if (소문자.endsWith(".jpg") || 소문자.endsWith(".jpeg")) return 시작(0xff, 0xd8, 0xff);
+  if (소문자.endsWith(".docx")) return 시작(0x50, 0x4b);
+  return true;
+}

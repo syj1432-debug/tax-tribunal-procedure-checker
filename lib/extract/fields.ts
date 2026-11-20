@@ -150,3 +150,14 @@ export function 파일값지우기(현재: 사건정보, 파일명: string): 사
   다음.출처 = 남은출처;
   return 다음;
 }
+
+/**
+ * 서류에서 AI가 읽어 채웠고 담당자가 고치지 않은 값이 몇 개인지. (CHECK.md G4)
+ * 서류 속 숨은 지시나 AI의 오독으로 값이 틀려도 결과는 그 값을 따르므로, 결과 화면과 보고서에 알린다.
+ */
+export function AI읽은값수(정보: 사건정보): number {
+  return Object.keys(정보.출처 ?? {}).filter((이름) => {
+    const 값 = 정보[이름 as 값이름];
+    return 값 !== null && 값 !== undefined && 값 !== "" && !정보.사용자수정?.includes(이름 as 값이름);
+  }).length;
+}

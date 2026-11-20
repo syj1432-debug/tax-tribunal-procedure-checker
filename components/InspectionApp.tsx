@@ -8,7 +8,7 @@
 import { useRef, useState } from "react";
 
 import { 파일읽기 } from "@/lib/extract/client";
-import { 추출값합치기, 파일값지우기, type 추출결과 } from "@/lib/extract/fields";
+import { AI읽은값수, 추출값합치기, 파일값지우기, type 추출결과 } from "@/lib/extract/fields";
 
 import { 각하가능성요약, 전체점검 } from "@/lib/rules";
 import type { 값이름, 모드, 사건정보, 점검결과 } from "@/lib/types";
@@ -32,14 +32,25 @@ export default function InspectionApp() {
   // 서버에는 파일을 하나씩 차례로 보낸다. (앞 파일이 끝나야 다음을 보낸다)
   const 읽기줄 = useRef<Promise<void>>(Promise.resolve());
   // 파일별로 읽은 값의 기록. 파일을 빼면 남은 파일의 기록으로 값을 다시 채우는 데 쓴다. (브라우저 메모리에만 있음)
+  // 읽는 중인 파일의 전송을 끊는 장치. [빼기]·[처음으로]를 누르면 끊고, 아직 차례가 안 온 파일은 보내지 않는다. (CHECK.md G2)
+  const 중단장치 = useRef(new Map<number, AbortController>());
+  const 뺀파일 = useRef(new Set<number>());
   const 읽은기록 = useRef<{ 번호: number; 파일명: string; 결과: 추출결과 }[]>([]);
 
+  // 읽는 중이던 전송을 모두 끊고 기록을 비운다.
+  function 읽기모두취소() {
+    for (const 장치 of 중단장치.current.values()) 장치.abort();
+    중단장치.current.clear();
+    뺀파일.current.clear();
+    읽은기록.current = [];
+    점검번호.current += 1; // 아직 읽는 중인 파일의 결과는 버린다.
+  }
+
   function 모드골랐을때(모드: 모드) {
+    읽기모두취소();
     정보바꾸기({ 모드 });
     결과바꾸기(null);
     항목바꾸기([]);
-    읽은기록.current = [];
-    점검번호.current += 1;
   }
 
   // 처음으로·점검 종료: 입력한 값과 결과를 모두 비우고 시작 화면으로 돌아간다.
@@ -49,8 +60,7 @@ export default function InspectionApp() {
     정보바꾸기(null);
     결과바꾸기(null);
     항목바꾸기([]); // 올린 파일도 함께 비운다.
-    읽은기록.current = []; // 읽은 값의 기록도 비운다.
-    점검번호.current += 1; // 아직 읽는 중인 파일의 결과는 버린다.
+    읽기모두취소(); // 읽는 중인 전송을 끊고 읽은 값의 기록도 비운다.
   }
 
   // 칸 하나를 바꾼다. 가상 서류 모드에서는 사용자가 고친 값으로 표시해 두어,
@@ -68,15 +78,21 @@ export default function InspectionApp() {
 
   // 파일을 더하면 하나씩 차례로 서버에 보내 값을 읽고, 읽은 값을 입력 칸에 합친다. (작업 14번)
   function 파일더하기(새파일들: File[]) {
+    // 서류 올리기는 가상 서류 모드에서만 쓴다. 다른 모드에서는 서버로 보내지 않는다. (CHECK.md G3)
+    if (정보?.모드 !== "가상") return;
     const 이번점검 = 점검번호.current;
     const 새항목들: 올린파일[] = 새파일들.map((파일) => ({ 번호: 다음파일번호.current++, 파일, 상태: "읽는 중" }));
     항목바꾸기((이전) => [...이전, ...새항목들]);
 
     for (const 항목 of 새항목들) {
       읽기줄.current = 읽기줄.current.then(async () => {
-        if (점검번호.current !== 이번점검) return; // 그 사이에 점검이 끝났다.
-        const 결과 = await 파일읽기(항목.파일);
-        if (점검번호.current !== 이번점검) return;
+        // 그 사이에 점검이 끝났거나 파일을 뺐으면 보내지 않는다.
+        if (점검번호.current !== 이번점검 || 뺀파일.current.has(항목.번호)) return;
+        const 장치 = new AbortController();
+        중단장치.current.set(항목.번호, 장치);
+        const 결과 = await 파일읽기(항목.파일, 장치.signal);
+        중단장치.current.delete(항목.번호);
+        if (점검번호.current !== 이번점검 || 뺀파일.current.has(항목.번호)) return;
         if (결과.성공) {
           읽은기록.current.push({ 번호: 항목.번호, 파일명: 항목.파일.name, 결과: 결과.결과 });
           정보바꾸기((이전) => (이전 === null ? 이전 : 추출값합치기(이전, 결과.결과)));
@@ -98,6 +114,9 @@ export default function InspectionApp() {
   // (사용자가 고친 값은 그대로 둔다. 같은 칸을 다른 파일도 읽었으면 그 값이 들어간다.)
   function 파일빼기(번호: number) {
     const 뺄것 = 항목들.find((x) => x.번호 === 번호);
+    뺀파일.current.add(번호); // 대기 중이면 보내지 않고, 읽는 중이면 전송을 끊는다.
+    중단장치.current.get(번호)?.abort();
+    중단장치.current.delete(번호);
     항목바꾸기((이전) => 이전.filter((x) => x.번호 !== 번호));
     if (!뺄것) return;
     읽은기록.current = 읽은기록.current.filter((x) => x.번호 !== 번호);
@@ -152,6 +171,7 @@ export default function InspectionApp() {
           <div className="mt-6 print:hidden">
             <ResultView
               결과들={결과들}
+              AI값수={AI읽은값수(정보)}
               가능성={각하가능성요약(결과들)}
               onBack={() => 결과바꾸기(null)}
               onEnd={처음으로}
@@ -159,7 +179,7 @@ export default function InspectionApp() {
             />
           </div>
           {/* 인쇄할 때만 보이는 보고서 */}
-          <ReportView 정보={정보} 결과들={결과들} 가능성={각하가능성요약(결과들)} />
+          <ReportView 정보={정보} AI값수={AI읽은값수(정보)} 결과들={결과들} 가능성={각하가능성요약(결과들)} />
         </>
       ) : (
       <div className={`mt-6 grid gap-8 ${정보.모드 === "가상" ? "md:grid-cols-2" : ""}`}>
@@ -174,7 +194,12 @@ export default function InspectionApp() {
               실제 서류 모드에서는 파일 업로드와 AI 호출을 사용하지 않고, 값을 직접 입력합니다.
             </p>
           )}
-          <CaseForm 값={정보} onChange={칸바꾸기} onInspect={점검하기} />
+          <CaseForm
+            값={정보}
+            onChange={칸바꾸기}
+            onInspect={점검하기}
+            읽는중={항목들.some((x) => x.상태 === "읽는 중")}
+          />
         </div>
       </div>
       )}

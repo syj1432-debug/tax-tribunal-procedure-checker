@@ -15,6 +15,8 @@ interface CaseFormProps {
   onChange: <K extends 값이름>(이름: K, 새값: 사건정보[K]) => void;
   /** [점검하기]를 눌렀을 때 알린다. 빈 칸은 점검에서 "확인 필요"가 되므로 언제든 누를 수 있다. */
   onInspect: () => void;
+  /** 서류에서 값을 읽는 중인 파일이 있으면 true. 읽기가 끝나기 전에 점검하면 결과와 입력값이 어긋나므로 막는다. (CHECK.md N1) */
+  읽는중?: boolean;
 }
 
 type 칸 =
@@ -41,7 +43,7 @@ export const 칸목록: 칸[] = [
     ],
   },
   { 이름: "청구인", 이름표: "청구인", 종류: "글자" },
-  { 이름: "대리인", 이름표: "대리인", 종류: "글자" },
+  { 이름: "대리인", 이름표: "대리인", 안내: "대리인 없이 청구인 본인이 청구했으면 비워 두세요", 종류: "글자" },
   { 이름: "대리인관계자격", 이름표: "대리인과의 관계·자격", 안내: "예: 청구인의 배우자", 종류: "글자" },
   {
     이름: "사건유형",
@@ -85,6 +87,14 @@ function 상태배지({ 값, 칸이름, 비었음 }: { 값: 사건정보; 칸이
       </span>
     );
   }
+  // 대리인 칸은 비워 두면 "대리인 없음"으로 점검한다. (대리인 없이 본인이 청구한 경우가 흔하다) 다른 칸과 달리 "확인 필요"가 아니다. (CHECK.md G5)
+  if (비었음 && 칸이름 === "대리인") {
+    return (
+      <span className={`${배지모양} bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100`}>
+        비우면 대리인 없음으로 점검
+      </span>
+    );
+  }
   if (비었음) {
     return (
       <span className={`${배지모양} bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100`}>
@@ -102,7 +112,7 @@ function 상태배지({ 값, 칸이름, 비었음 }: { 값: 사건정보; 칸이
   return null;
 }
 
-export default function CaseForm({ 값, onChange, onInspect }: CaseFormProps) {
+export default function CaseForm({ 값, onChange, onInspect, 읽는중 = false }: CaseFormProps) {
   // 화면에서 받은 글자를 사건정보의 알맞은 모양(날짜 글자, 숫자, true/false)으로 바꿔 알린다.
   function 바뀜(칸: 칸, 입력: string) {
     // onChange의 두 번째 인자는 칸마다 모양이 달라서, 여기서만 느슨하게 넘긴다.
@@ -118,7 +128,7 @@ export default function CaseForm({ 값, onChange, onInspect }: CaseFormProps) {
     <div>
       <h2 className="text-lg font-semibold">핵심 정보 확인·수정</h2>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        서류에 없는 값은 비워 두세요. 비운 칸은 점검할 때 &quot;확인 필요&quot;가 됩니다. 서류에서 읽어 채운 값(&quot;서류에서 읽음&quot;)은 서류와 맞는지 확인하고, 틀리면 고쳐 주세요. 고친 값은 파일을 다시 올려도 바뀌지 않습니다. 주민등록번호 같은 식별번호는 점검에 필요하지 않으니 적지 마세요. 적어도 자동으로 가려집니다.
+        서류에 없는 값은 비워 두세요. 비운 칸은 점검할 때 &quot;확인 필요&quot;가 됩니다(대리인 칸은 예외로, 비우면 대리인 없음으로 봅니다). 서류에서 읽어 채운 값(&quot;서류에서 읽음&quot;)은 서류와 맞는지 확인하고, 틀리면 고쳐 주세요. 고친 값은 파일을 다시 올려도 바뀌지 않습니다. 주민등록번호 같은 식별번호는 점검에 필요하지 않으니 적지 마세요. 적어도 자동으로 가려집니다.
       </p>
 
       <div className="mt-4 space-y-4">
@@ -137,7 +147,7 @@ export default function CaseForm({ 값, onChange, onInspect }: CaseFormProps) {
               {/* 가상 서류에서 읽은 값이면 어느 파일 몇 쪽에서 읽었는지 보여준다. (PRD 5번) */}
               {현재 !== "" && 읽은값인지(값, 칸.이름) && (
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  출처: {값.출처![칸.이름]!.파일명}
+                  출처: {마스킹(값.출처![칸.이름]!.파일명)}
                   {값.출처![칸.이름]!.쪽수 ? ` ${값.출처![칸.이름]!.쪽수}쪽` : ""}
                 </p>
               )}
@@ -180,10 +190,16 @@ export default function CaseForm({ 값, onChange, onInspect }: CaseFormProps) {
         <button
           type="button"
           onClick={onInspect}
-          className="rounded bg-zinc-900 px-4 py-2 text-white dark:bg-zinc-100 dark:text-zinc-900"
+          disabled={읽는중}
+          className="rounded bg-zinc-900 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
         >
           점검하기
         </button>
+        {읽는중 && (
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            파일에서 값을 읽는 중입니다. 다 읽은 뒤에 점검할 수 있어요.
+          </p>
+        )}
       </div>
     </div>
   );

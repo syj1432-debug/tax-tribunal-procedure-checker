@@ -59,11 +59,13 @@ export async function 서류읽기(내용: 파일내용, 파일명: string): Pro
     응답 = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${키}` },
+      signal: AbortSignal.timeout(45_000), // 응답이 늦어도 45초 안에 끊는다. (함수 한도 60초보다 짧게)
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL?.trim() || 기본모델,
         store: false, // OpenAI 쪽에도 응답을 저장해 두지 않게 요청한다.
         instructions: 안내글,
         input: [{ role: "user", content: 본문 }],
+        max_output_tokens: 2000, // 답변은 정해진 모양의 짧은 값들뿐이다. 길이를 제한해 비용을 막는다.
         text: { format: { type: "json_schema", name: "extracted_values", strict: true, schema: AI응답모양() } },
       }),
     });

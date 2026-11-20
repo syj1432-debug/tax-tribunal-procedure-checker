@@ -6,8 +6,9 @@ import { NextResponse } from "next/server";
 
 import { 추출값정리 } from "@/lib/extract/fields";
 import { 기록 } from "@/lib/log";
+import { 같은사이트요청인가 } from "@/lib/server/origin";
 import { 서류읽기, 추출오류, type 파일내용 } from "@/lib/server/openai";
-import { 파일검사 } from "@/lib/upload";
+import { 내용형식맞음, 최대글자수, 파일검사 } from "@/lib/upload";
 
 export const maxDuration = 60;
 
@@ -16,6 +17,11 @@ function 오류(상태: number, 안내: string, 코드: string) {
 }
 
 export async function POST(요청: Request) {
+  // 다른 웹사이트가 방문자의 브라우저로 몰래 부르는 것을 막는다. (보조 수단)
+  if (!같은사이트요청인가(요청.headers)) {
+    return 오류(403, "이 사이트 화면에서만 쓸 수 있어요.", "출처거부");
+  }
+
   let 폼: FormData;
   try {
     폼 = await 요청.formData();
@@ -45,6 +51,10 @@ export async function POST(요청: Request) {
 
   try {
     const 바이트 = Buffer.from(await 파일.arrayBuffer());
+    // 이름만 .pdf인 다른 파일을 AI에 보내지 않도록 내용의 첫 바이트도 확인한다.
+    if (!내용형식맞음(파일.name, 바이트.subarray(0, 8))) {
+      return 오류(400, "파일 내용이 확장자와 맞지 않아요. 올바른 파일인지 확인해 주세요.", "형식불일치");
+    }
     let 내용: 파일내용;
     if (이름.endsWith(".pdf")) {
       내용 = { 종류: "pdf", 바이트 };
@@ -54,6 +64,9 @@ export async function POST(요청: Request) {
       const mammoth = await import("mammoth");
       const { value } = await mammoth.extractRawText({ buffer: 바이트 });
       if (value.trim() === "") return 오류(422, "Word 파일에서 글자를 찾지 못했어요.", "글없음");
+      if (value.length > 최대글자수) {
+        return 오류(422, "Word 파일의 글이 너무 길어요. 필요한 부분만 남기거나 PDF로 변환해서 올려 주세요.", "글너무김");
+      }
       내용 = { 종류: "글", 글: value };
     }
 
