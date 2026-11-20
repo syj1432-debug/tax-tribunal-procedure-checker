@@ -61,6 +61,7 @@ npm run check    # 타입 검사 + 코드 검사 + 시험 + 빌드
 > Windows PowerShell에서 `npm`이 "스크립트를 실행할 수 없습니다"라고 막히면 `npm.cmd run dev`처럼 `npm.cmd`로 실행하세요.
 
 가상 서류 자동 추출을 쓰려면 `.env` 파일에 `OPENAI_API_KEY`를 넣습니다. (`.env`는 저장소에 올라가지 않습니다.) 키가 없어도 **실제 서류 모드(직접 입력)**는 그대로 동작합니다.
+`npm run ship -- "커밋 메시지"`는 검사 → 커밋 → GitHub 푸시 → Vercel 재배포 → 배포 확인을 한 번에 합니다(`.env`에 `GITHUB_TOKEN`, `VERCEL_TOKEN` 필요, 저장소 주인용).
 `npm run test:live`는 샘플 서류 9개를 실제 AI로 읽혀 전체 흐름을 시험합니다(개발 서버가 켜져 있어야 하고, OpenAI 호출 비용이 조금 듭니다).
 
 ## 폴더 구성

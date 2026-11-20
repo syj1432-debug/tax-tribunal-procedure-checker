@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
-    "check": "tsc --noEmit && eslint app components lib tests && vitest run && next build"
+    "check": "tsc --noEmit && eslint app components lib tests && vitest run && next build",
+    "ship": "node scripts/ship.mjs"
   },
   "dependencies": {
     "mammoth": "^1.13.0",
